@@ -95,8 +95,8 @@ class ZhihuSpider(scrapy.Spider):
                 formdata={
                     '_xsrf': xsrf,
                     'captcha_type': 'cn',
-                    'email': '1784073318@qq.com',
-                    'password': 'zhounan800157',
+                    'email': 'xxx@xxx.com',
+                    'password': 'xxxxx',
                 },
                 callback=self.after_login)
         ]
