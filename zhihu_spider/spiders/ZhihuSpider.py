@@ -2,6 +2,8 @@
 import scrapy
 import json
 import codecs
+
+
 from zhihu_spider.items import ZhihuSpiderItem
 from zhihu_spider.pipelines import ZhihuSpiderPipeline
 
@@ -65,10 +67,21 @@ class ZhihuSpider(scrapy.Spider):
 
 
     #feedUrl = 'http://www.zhihu.com/api/v4/members/shan-yang-yue/followers?include=data%5B%2A%5D.answer_count%2Carticles_count%2Cgender%2Cfollower_count%2Cis_followed%2Cis_following%2Cbadge%5B%3F%28type%3Dbest_answerer%29%5D.topics&limit=20&offset=0'
-    feedUrl = "https://www.zhihu.com/api/v4/members/gong-qing-tuan-zhong-yang-67/answers?sort_by=created&include=data%5B%2A%5D.is_normal%2Cadmin_closed_comment%2Creward_info%2Cis_collapsed%2Cannotation_action%2Cannotation_detail%2Ccollapse_reason%2Ccollapsed_by%2Csuggest_edit%2Ccomment_count%2Ccan_comment%2Ccontent%2Cvoteup_count%2Creshipment_settings%2Ccomment_permission%2Cmark_infos%2Ccreated_time%2Cupdated_time%2Creview_info%2Cquestion%2Cexcerpt%2Crelationship.is_authorized%2Cvoting%2Cis_author%2Cis_thanked%2Cis_nothelp%2Cupvoted_followees%3Bdata%5B%2A%5D.author.badge%5B%3F%28type%3Dbest_answerer%29%5D.topics&limit=15&offset=0"
-    #feedUrl = "http://www.zhihu.com/api/v4/answers/136133621/voters?include=data%5B%2A%5D.answer_count%2Carticles_count%2Cfollower_count%2Cgender%2Cis_followed%2Cis_following%2Cbadge%5B%3F%28type%3Dbest_answerer%29%5D.topics&limit=10&offset=0"
+    #feedUrl = "https://www.zhihu.com/api/v4/members/gong-qing-tuan-zhong-yang-67/answers?sort_by=created&include=data%5B%2A%5D.is_normal%2Cadmin_closed_comment%2Creward_info%2Cis_collapsed%2Cannotation_action%2Cannotation_detail%2Ccollapse_reason%2Ccollapsed_by%2Csuggest_edit%2Ccomment_count%2Ccan_comment%2Ccontent%2Cvoteup_count%2Creshipment_settings%2Ccomment_permission%2Cmark_infos%2Ccreated_time%2Cupdated_time%2Creview_info%2Cquestion%2Cexcerpt%2Crelationship.is_authorized%2Cvoting%2Cis_author%2Cis_thanked%2Cis_nothelp%2Cupvoted_followees%3Bdata%5B%2A%5D.author.badge%5B%3F%28type%3Dbest_answerer%29%5D.topics&limit=15&offset=0"
+    feedUrl = "http://www.zhihu.com/api/v4/answers/221150133/voters?include=data%5B%2A%5D.answer_count%2Carticles_count%2Cfollower_count%2Cgender%2Cis_followed%2Cis_following%2Cbadge%5B%3F%28type%3Dbest_answerer%29%5D.topics&limit=10&offset=0"
     nextFeedUrl = ''
     curFeedId = 0
+    f = open("/home/zhounan/PycharmProjects/zhihu_spider/zhihu.json", 'r')
+    all_feedUrl = []
+    for line in f:
+        line = json.loads(line.strip())
+        all_feedUrl.append('"' + "https://www.zhihu.com/api/v4/answers/" + str(line[
+                                                                                   "id"]) + "/voters?include=data[*].answer_count,articles_count,follower_count,gender,is_followed,is_following,badge[?(type=best_answerer)].topics&offset=0&limit=0" + '",')
+
+    # f = open("/home/zhounan/PycharmProjects/zhihu_spider/url.txt", 'r')
+    # for line in f:
+    #     feedUrl = line.strip()
+
 
     def start_requests(self):
         return [
@@ -108,18 +121,18 @@ class ZhihuSpider(scrapy.Spider):
             z_c0 = response.headers.getlist('Set-Cookie')[2].split(';')[0].split('=')[1]
             self.headers['authorization'] = 'Bearer ' + z_c0
             return scrapy.http.FormRequest(
-                url=self.feedUrl,
-                method='GET',
-                meta={'cookiejar': response.meta['cookiejar']},
-                headers=self.headers,
-                formdata={
-                    'action_feed': 'True',
-                    'limit': '10',
-                    'action': 'down',
-                    'after_id': str(self.curFeedId),
-                    'desktop': 'true'
-                },
-                callback=self.parse)
+                    url=self.feedUrl,
+                    method='GET',
+                    meta={'cookiejar': response.meta['cookiejar']},
+                    headers=self.headers,
+                    formdata={
+                        'action_feed': 'True',
+                        'limit': '10',
+                        'action': 'down',
+                        'after_id': str(self.curFeedId),
+                        'desktop': 'true'
+                    },
+                    callback=self.parse)
         else:
             print(jdict['error'])
 
@@ -134,20 +147,19 @@ class ZhihuSpider(scrapy.Spider):
 
 
     def parse(self, response):
-        # with codecs.open('test-2.json', 'a', encoding='utf-8') as fd:
-        #     fd.write(response.body)
+        with codecs.open('all-answers-upvotes.json', 'a', encoding='utf-8') as fd:
+            fd.write(response.body + "\n")
         jdict = json.loads(response.body)
-
         jdatas = jdict['data']
         for entry in jdatas:
             entry['pid'] = entry['id']
             yield entry
-
         jpaging = jdict['paging']
         self.curFeedId += len(jdatas)
         if jpaging['is_end'] == False and self.curFeedId < jdict['paging']['totals']:
             self.nextFeedUrl = jpaging['next']
             yield self.next_request(response)
+
 
 
     def next_request(self, response):
@@ -158,4 +170,6 @@ class ZhihuSpider(scrapy.Spider):
             headers=self.headers,
             callback=self.parse)
 
-#test
+
+
+
